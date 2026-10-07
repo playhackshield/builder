@@ -1,0 +1,112 @@
+{
+  "assetFrontOffset": 180,
+  "shipAnchorOffset": {
+    "x": 0,
+    "y": 0
+  },
+  "width": 1024,
+  "height": 640,
+  "speedPxPerSecond": 260,
+  "startNode": "start",
+  "startRotation": -90,
+  "nodes": {
+    "start": {
+      "x": 512,
+      "y": 555,
+      "type": "start",
+      "visible": true
+    },
+    "pageA": {
+      "x": 240,
+      "y": 160,
+      "type": "page",
+      "href": "level-a.html",
+      "visible": true
+    },
+    "pageB": {
+      "x": 512,
+      "y": 115,
+      "type": "page",
+      "href": "level-b.html",
+      "visible": true
+    },
+    "junction1": {
+      "x": 760,
+      "y": 250,
+      "type": "junction",
+      "visible": true
+    },
+    "pageC": {
+      "x": 650,
+      "y": 90,
+      "type": "page",
+      "href": "level-c.html",
+      "visible": true
+    },
+    "pageD": {
+      "x": 895,
+      "y": 125,
+      "type": "page",
+      "href": "level-d.html",
+      "visible": true
+    },
+    "midLeft": {
+      "x": 350,
+      "y": 345,
+      "type": "hidden"
+    },
+    "midTop": {
+      "x": 512,
+      "y": 310,
+      "type": "hidden"
+    },
+    "midJunction": {
+      "x": 650,
+      "y": 370,
+      "type": "hidden"
+    },
+    "node1": {
+      "x": 892,
+      "y": 461,
+      "type": "hidden"
+    }
+  },
+  "routes": [
+    {
+      "from": "start",
+      "to": "pageA",
+      "nodes": [
+        "start",
+        "midLeft",
+        "pageA"
+      ]
+    },
+    {
+      "from": "start",
+      "to": "pageB",
+      "nodes": [
+        "start",
+        "midTop",
+        "pageB"
+      ]
+    },
+    {
+      "from": "start",
+      "to": "junction1",
+      "nodes": [
+        "start",
+        "midJunction",
+        "junction1"
+      ]
+    },
+    {
+      "from": "junction1",
+      "to": "pageD",
+      "nodes": [
+        "junction1",
+        "node1",
+        "pageD"
+      ]
+    }
+  ]
+}

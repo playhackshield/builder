@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Holocraft Level Builder</title>
+  <style>
+    :root {
+      --bg: #071b33;
+      --panel: #0f2b4d;
+      --panel2: #173b66;
+      --text: #f7f3df;
+      --muted: #b9c6d8;
+      --gold: #f2c94c;
+      --cyan: #8feaff;
+      --danger: #ff7b7b;
+      --ok: #74d99f;
+      --stage-width: 1024px;
+      --stage-height: 640px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: radial-gradient(circle at top, #123b69 0%, var(--bg) 58%, #03101f 100%);
+      color: var(--text);
+    }
+
+    header {
+      padding: 22px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      background: rgba(7, 27, 51, 0.85);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+    }
+
+    .intro {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 18px;
+      padding: 18px;
+      align-items: start;
+    }
+
+    .card {
+      background: rgba(15, 43, 77, 0.92);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.22);
+    }
+
+    .stage-wrap {
+      width: 100%;
+      overflow: auto;
+    }
+
+    .stage {
+      position: relative;
+      width: var(--stage-width);
+      height: var(--stage-height);
+      background: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 2px solid rgba(242,201,76,0.35);
+      cursor: crosshair;
+    }
+
+    .stage.has-bg {
+      background-image: var(--builder-bg);
+      background-size: 100% 100%;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    svg {
+      position: absolute;
+      inset: 0;
+      width: var(--stage-width);
+      height: var(--stage-height);
+    }
+
+    .route-line-bg {
+      stroke: rgba(0,0,0,0.35);
+      stroke-width: 10;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      pointer-events: none;
+    }
+
+    .route-line {
+      stroke: #145a8d;
+      stroke-width: 8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      pointer-events: none;
+    }
+
+    .route-dash {
+      stroke: #8feaff;
+      stroke-width: 2;
+      stroke-dasharray: 5 6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      pointer-events: none;
+    }
+
+    .node-dot {
+      cursor: pointer;
+      stroke-width: 2;
+      stroke: #111;
+    }
+
+    .node-start { fill: #74d99f; }
+    .node-junction { fill: #f2c94c; }
+    .node-page { fill: #ff7b7b; }
+    .node-hidden { fill: #7d8aa3; opacity: 0.55; }
+
+    .node-label {
+      font-size: 13px;
+      font-weight: 700;
+      fill: #111;
+      paint-order: stroke;
+      stroke: #fff;
+      stroke-width: 4px;
+      stroke-linejoin: round;
+      pointer-events: none;
+    }
+
+    .selected {
+      filter: drop-shadow(0 0 8px #00e5ff);
+      stroke: #00e5ff;
+      stroke-width: 4;
+    }
+
+    .controls {
+      display: grid;
+      gap: 14px;
+    }
+
+    .section-title {
+      margin: 0 0 10px;
+      font-size: 18px;
+      color: var(--gold);
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.08);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    select option {
+      color: #111;
+    }
+
+    textarea {
+      min-height: 260px;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 12px;
+      line-height: 1.4;
+      resize: vertical;
+      white-space: pre;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--gold);
+      color: #1d1705;
+      transition: transform 0.12s ease, opacity 0.12s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button.secondary { background: #dce9ff; color: #08213d; }
+    button.danger { background: var(--danger); color: #240808; }
+    button.ok { background: var(--ok); color: #062010; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+    .list {
+      display: grid;
+      gap: 8px;
+      max-height: 230px;
+      overflow: auto;
+      padding-right: 3px;
+    }
+
+    .item {
+      padding: 9px 10px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .item.active {
+      border-color: rgba(242,201,76,0.75);
+      color: var(--text);
+      background: rgba(242,201,76,0.12);
+    }
+
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+      margin: 8px 0 0;
+    }
+
+    .modebar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .modebar button.active {
+      background: var(--cyan);
+      color: #042432;
+    }
+
+    .status {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.07);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+      margin-top: 12px;
+    }
+
+    .route-builder {
+      display: grid;
+      gap: 10px;
+    }
+
+    .warning {
+      border: 1px solid rgba(255,123,123,0.4);
+      background: rgba(255,123,123,0.12);
+      color: #ffe6e6;
+    }
+
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Holocraft Level Builder</h1>
+    <p class="intro">Maak nodes en routes. Genereer daarna het LEVEL-object en plak dat in je game-HTML.</p>
+  </header>
+
+  <main class="layout">
+    <section class="card">
+      <div class="modebar">
+        <button id="modeSelect" class="active">Selecteren</button>
+        <button id="modeAdd">Node plaatsen</button>
+      </div>
+
+      <div class="stage-wrap">
+        <div class="stage" id="stage">
+          <svg id="builderSvg" viewBox="0 0 1024 640" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+
+      <div class="status" id="status">
+        Klik op “Node plaatsen” en klik daarna op de kaart om een node toe te voegen. Klik op bestaande nodes om ze te bewerken.
+      </div>
+    </section>
+
+    <aside class="controls">
+      <section class="card">
+        <h2 class="section-title">Achtergrond</h2>
+        <input type="file" id="bgUpload" accept="image/*" />
+        <p class="small">Deze afbeelding wordt alleen gebruikt als visuele hulp in de builder. In je game blijft de naam standaard <strong>level-background.png</strong>.</p>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">Node bewerken</h2>
+
+        <div class="grid-2">
+          <div>
+            <label for="nodeId">ID</label>
+            <input id="nodeId" placeholder="bijv. junction1" />
+          </div>
+          <div>
+            <label for="nodeType">Type</label>
+            <select id="nodeType">
+              <option value="start">start</option>
+              <option value="junction">junction</option>
+              <option value="page">page</option>
+              <option value="hidden">hidden</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <label for="nodeX">X</label>
+            <input id="nodeX" type="number" />
+          </div>
+          <div>
+            <label for="nodeY">Y</label>
+            <input id="nodeY" type="number" />
+          </div>
+        </div>
+
+        <div>
+          <label for="nodeHref">HTML-pagina bij type “page”</label>
+          <input id="nodeHref" placeholder="bijv. wachtwoord.html" />
+        </div>
+
+        <div class="button-row">
+          <button id="saveNode" class="ok">Node opslaan</button>
+          <button id="deleteNode" class="danger">Node verwijderen</button>
+        </div>
+
+        <p class="small">Gebruik <strong>hidden</strong> voor bochtpunten die wel in een route zitten, maar niet klikbaar of zichtbaar hoeven te zijn.</p>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">Nodes</h2>
+        <div class="list" id="nodeList"></div>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">Route maken</h2>
+        <div class="route-builder">
+          <div class="grid-2">
+            <div>
+              <label for="routeFrom">Van</label>
+              <select id="routeFrom"></select>
+            </div>
+            <div>
+              <label for="routeTo">Naar</label>
+              <select id="routeTo"></select>
+            </div>
+          </div>
+
+          <div>
+            <label for="routeNodes">Routepunten op volgorde</label>
+            <input id="routeNodes" placeholder="start, mid1, junction1" />
+          </div>
+
+          <label>
+            <input type="checkbox" id="routeOneWay" style="width:auto; margin-right:6px;" />
+            Eenrichting
+          </label>
+
+          <div class="button-row">
+            <button id="addRoute" class="ok">Route toevoegen</button>
+            <button id="autoRoute" class="secondary">Vul direct van → naar</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">Routes</h2>
+        <div class="list" id="routeList"></div>
+        <div class="button-row" style="margin-top:10px;">
+          <button id="deleteRoute" class="danger">Geselecteerde route verwijderen</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="section-title">JSON / LEVEL-object</h2>
+        <div class="button-row" style="margin-bottom:10px;">
+          <button id="generateJson" class="ok">Genereer LEVEL</button>
+          <button id="copyJson" class="secondary">Kopieer</button>
+          <button id="downloadJson" class="secondary">Download .json</button>
+        </div>
+        <textarea id="jsonOutput" spellcheck="false"></textarea>
+        <p class="small">Dit bestand kan direct worden opgeslagen als <strong>levelnaam.json</strong> en gebruikt worden door engine.html.</p>
+      </section>
+
+      <section class="card warning">
+        <h2 class="section-title">Belangrijk</h2>
+        <p class="small">Een route naar een <strong>page</strong>-node opent na aankomst de ingestelde HTML-pagina. Een route naar een <strong>junction</strong>-node stopt daar en laat nieuwe beschikbare paden zien. Routes zijn standaard tweerichtingsverkeer, tenzij je “Eenrichting” aanvinkt.</p>
+      </section>
+    </aside>
+  </main>
+
+  <script>
+    // ----- DEFAULT LEVEL (volledige structuur) -----
+    const DEFAULT_LEVEL = {
+      assetFrontOffset: 180,
+      shipAnchorOffset: { x: 0, y: 0 },
+      width: 1024,
+      height: 640,
+      speedPxPerSecond: 260,
+      startNode: 'start',
+      startRotation: -90,
+      nodes: {
+        start: { x: 512, y: 555, type: 'start', visible: true },
+        pageA: { x: 240, y: 160, type: 'page', href: 'level-a.html', visible: true },
+        pageB: { x: 512, y: 115, type: 'page', href: 'level-b.html', visible: true },
+        junction1: { x: 760, y: 250, type: 'junction', visible: true },
+        pageC: { x: 650, y: 90, type: 'page', href: 'level-c.html', visible: true },
+        pageD: { x: 895, y: 125, type: 'page', href: 'level-d.html', visible: true },
+        midLeft: { x: 350, y: 345, type: 'hidden' },
+        midTop: { x: 512, y: 310, type: 'hidden' },
+        midJunction: { x: 650, y: 370, type: 'hidden' }
+      },
+      routes: [
+        { from: 'start', to: 'pageA', nodes: ['start', 'midLeft', 'pageA'] },
+        { from: 'start', to: 'pageB', nodes: ['start', 'midTop', 'pageB'] },
+        { from: 'start', to: 'junction1', nodes: ['start', 'midJunction', 'junction1'] },
+        { from: 'junction1', to: 'pageC', nodes: ['junction1', 'pageC'] },
+        { from: 'junction1', to: 'pageD', nodes: ['junction1', 'pageD'] }
+      ]
+    };
+
+    let level = { ...DEFAULT_LEVEL };
+    let mode = 'select';
+    let selectedNodeId = null;
+    let selectedRouteIndex = null;
+    let nodeCounter = 1;
+
+    const STAGE = { width: 1024, height: 640 };
+    const stage = document.getElementById('stage');
+    const svg = document.getElementById('builderSvg');
+    const statusEl = document.getElementById('status');
+
+    const nodeIdInput = document.getElementById('nodeId');
+    const nodeTypeInput = document.getElementById('nodeType');
+    const nodeXInput = document.getElementById('nodeX');
+    const nodeYInput = document.getElementById('nodeY');
+    const nodeHrefInput = document.getElementById('nodeHref');
+    const nodeList = document.getElementById('nodeList');
+    const routeList = document.getElementById('routeList');
+    const routeFrom = document.getElementById('routeFrom');
+    const routeTo = document.getElementById('routeTo');
+    const routeNodes = document.getElementById('routeNodes');
+    const routeOneWay = document.getElementById('routeOneWay');
+    const jsonOutput = document.getElementById('jsonOutput');
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function setMode(newMode) {
+      mode = newMode;
+      document.getElementById('modeSelect').classList.toggle('active', mode === 'select');
+      document.getElementById('modeAdd').classList.toggle('active', mode === 'add');
+      setStatus(mode === 'add'
+        ? 'Klik op de kaart om een nieuwe node te plaatsen.'
+        : 'Selecteer een node of route om die te bewerken.');
+    }
+
+    function svgEl(tag, attrs = {}) {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+      return el;
+    }
+
+    function getStagePoint(event) {
+      const rect = stage.getBoundingClientRect();
+      const x = Math.round((event.clientX - rect.left) * STAGE.width / rect.width);
+      const y = Math.round((event.clientY - rect.top) * STAGE.height / rect.height);
+      return {
+        x: Math.max(0, Math.min(STAGE.width, x)),
+        y: Math.max(0, Math.min(STAGE.height, y))
+      };
+    }
+
+    function routeToPathData(route) {
+      return route.nodes.map((id, index) => {
+        const node = level.nodes[id];
+        if (!node) return '';
+        return `${index === 0 ? 'M' : 'L'}${node.x} ${node.y}`;
+      }).join(' ');
+    }
+
+    function draw() {
+      svg.innerHTML = '';
+
+      level.routes.forEach((route, index) => {
+        if (!route.nodes.every(id => level.nodes[id])) return;
+
+        ['route-line-bg', 'route-line', 'route-dash'].forEach(cls => {
+          const path = svgEl('path', { class: cls, d: routeToPathData(route) });
+          path.dataset.routeIndex = index;
+          svg.appendChild(path);
+        });
+      });
+
+      Object.entries(level.nodes).forEach(([id, node]) => {
+        const circle = svgEl('circle', {
+          cx: node.x,
+          cy: node.y,
+          r: node.type === 'hidden' ? 8 : 11,
+          class: `node-dot node-${node.type || 'junction'} ${id === selectedNodeId ? 'selected' : ''}`,
+          'data-node-id': id
+        });
+
+        circle.addEventListener('click', event => {
+          event.stopPropagation();
+          selectNode(id);
+        });
+
+        svg.appendChild(circle);
+
+        const label = svgEl('text', {
+          x: node.x + 14,
+          y: node.y - 10,
+          class: 'node-label'
+        });
+        label.textContent = id;
+        svg.appendChild(label);
+      });
+
+      renderLists();
+      renderRouteSelects();
+    }
+
+    function renderLists() {
+      nodeList.innerHTML = '';
+      Object.entries(level.nodes).forEach(([id, node]) => {
+        const item = document.createElement('div');
+        item.className = `item ${id === selectedNodeId ? 'active' : ''}`;
+        item.innerHTML = `<strong>${id}</strong><br>${node.type} · x:${node.x}, y:${node.y}${node.href ? `<br>${node.href}` : ''}`;
+        item.addEventListener('click', () => selectNode(id));
+        nodeList.appendChild(item);
+      });
+
+      routeList.innerHTML = '';
+      level.routes.forEach((route, index) => {
+        const item = document.createElement('div');
+        item.className = `item ${index === selectedRouteIndex ? 'active' : ''}`;
+        item.innerHTML = `<strong>${route.from} → ${route.to}</strong><br>${route.nodes.join(' → ')}${route.oneWay ? '<br>eenrichting' : '<br>tweerichting'}`;
+        item.addEventListener('click', () => {
+          selectedRouteIndex = index;
+          renderLists();
+          fillRouteEditor(route);
+        });
+        routeList.appendChild(item);
+      });
+    }
+
+    function renderRouteSelects() {
+      const selectable = Object.keys(level.nodes).filter(id => level.nodes[id].type !== 'hidden');
+      const oldFrom = routeFrom.value;
+      const oldTo = routeTo.value;
+
+      routeFrom.innerHTML = '';
+      routeTo.innerHTML = '';
+
+      selectable.forEach(id => {
+        routeFrom.appendChild(new Option(id, id));
+        routeTo.appendChild(new Option(id, id));
+      });
+
+      if (selectable.includes(oldFrom)) routeFrom.value = oldFrom;
+      if (selectable.includes(oldTo)) routeTo.value = oldTo;
+    }
+
+    function selectNode(id) {
+      selectedNodeId = id;
+      selectedRouteIndex = null;
+      const node = level.nodes[id];
+
+      nodeIdInput.value = id;
+      nodeTypeInput.value = node.type || 'junction';
+      nodeXInput.value = node.x;
+      nodeYInput.value = node.y;
+      nodeHrefInput.value = node.href || '';
+
+      draw();
+      setStatus(`Node geselecteerd: ${id}`);
+    }
+
+    function saveNode() {
+      const oldId = selectedNodeId;
+      const newId = nodeIdInput.value.trim();
+      const type = nodeTypeInput.value;
+      const x = Number(nodeXInput.value);
+      const y = Number(nodeYInput.value);
+      const href = nodeHrefInput.value.trim();
+
+      if (!newId) return alert('Geef de node een ID.');
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return alert('X en Y moeten getallen zijn.');
+      if (type === 'page' && !href) return alert('Een page-node heeft een HTML-pagina nodig.');
+
+      if (oldId && oldId !== newId) {
+        if (level.nodes[newId]) return alert('Deze ID bestaat al.');
+        level.nodes[newId] = { ...level.nodes[oldId] };
+        delete level.nodes[oldId];
+
+        level.routes.forEach(route => {
+          if (route.from === oldId) route.from = newId;
+          if (route.to === oldId) route.to = newId;
+          route.nodes = route.nodes.map(id => id === oldId ? newId : id);
+        });
+
+        if (level.startNode === oldId) level.startNode = newId;
+      }
+
+      level.nodes[newId] = {
+        x,
+        y,
+        type,
+        ...(type === 'hidden' ? {} : { visible: true }),
+        ...(type === 'page' ? { href } : {})
+      };
+
+      if (type === 'start') {
+        level.startNode = newId;
+        Object.entries(level.nodes).forEach(([id, node]) => {
+          if (id !== newId && node.type === 'start') node.type = 'junction';
+        });
+      }
+
+      selectedNodeId = newId;
+      draw();
+      generateJson();
+    }
+
+    function deleteNode() {
+      if (!selectedNodeId) return;
+      if (!confirm(`Node "${selectedNodeId}" verwijderen? Routes waarin deze node zit worden ook verwijderd.`)) return;
+
+      delete level.nodes[selectedNodeId];
+      level.routes = level.routes.filter(route => !route.nodes.includes(selectedNodeId));
+      selectedNodeId = null;
+      clearNodeEditor();
+      draw();
+      generateJson();
+    }
+
+    function clearNodeEditor() {
+      nodeIdInput.value = '';
+      nodeTypeInput.value = 'junction';
+      nodeXInput.value = '';
+      nodeYInput.value = '';
+      nodeHrefInput.value = '';
+    }
+
+    function fillRouteEditor(route) {
+      routeFrom.value = route.from;
+      routeTo.value = route.to;
+      routeNodes.value = route.nodes.join(', ');
+      routeOneWay.checked = !!route.oneWay;
+    }
+
+    function addRoute() {
+      const from = routeFrom.value;
+      const to = routeTo.value;
+      const nodes = routeNodes.value.split(',').map(x => x.trim()).filter(Boolean);
+
+      if (!from || !to) return alert('Kies een begin- en eindnode.');
+      if (from === to) return alert('Van en Naar mogen niet hetzelfde zijn.');
+      if (nodes.length < 2) return alert('Een route heeft minimaal twee nodes nodig.');
+      if (nodes[0] !== from) return alert('De eerste route-node moet gelijk zijn aan “Van”.');
+      if (nodes[nodes.length - 1] !== to) return alert('De laatste route-node moet gelijk zijn aan “Naar”.');
+
+      const missing = nodes.filter(id => !level.nodes[id]);
+      if (missing.length) return alert(`Deze nodes bestaan niet: ${missing.join(', ')}`);
+
+      const route = {
+        from,
+        to,
+        nodes,
+        ...(routeOneWay.checked ? { oneWay: true } : {})
+      };
+
+      if (selectedRouteIndex !== null) {
+        level.routes[selectedRouteIndex] = route;
+      } else {
+        level.routes.push(route);
+      }
+
+      selectedRouteIndex = null;
+      routeNodes.value = '';
+      routeOneWay.checked = false;
+      draw();
+      generateJson();
+    }
+
+    function deleteRoute() {
+      if (selectedRouteIndex === null) return;
+      level.routes.splice(selectedRouteIndex, 1);
+      selectedRouteIndex = null;
+      draw();
+      generateJson();
+    }
+
+    function autoRoute() {
+      routeNodes.value = `${routeFrom.value}, ${routeTo.value}`;
+    }
+
+    function addNodeAt(x, y) {
+      let id = `node${nodeCounter++}`;
+      while (level.nodes[id]) id = `node${nodeCounter++}`;
+
+      level.nodes[id] = { x, y, type: 'junction', visible: true };
+      selectNode(id);
+      generateJson();
+    }
+
+    function generateLevelObject() {
+      return {
+        assetFrontOffset: level.assetFrontOffset,
+        shipAnchorOffset: level.shipAnchorOffset,
+        width: level.width,
+        height: level.height,
+        speedPxPerSecond: level.speedPxPerSecond,
+        startNode: level.startNode,
+        startRotation: level.startRotation,
+        nodes: level.nodes,
+        routes: level.routes
+      };
+    }
+
+    function generateJson() {
+      const objectText = JSON.stringify(generateLevelObject(), null, 2);
+      jsonOutput.value = objectText;
+    }
+
+    async function copyJson() {
+      generateJson();
+      try {
+        await navigator.clipboard.writeText(jsonOutput.value);
+        setStatus('LEVEL-object gekopieerd.');
+      } catch (e) {
+        jsonOutput.select();
+        document.execCommand('copy');
+        setStatus('LEVEL-object geselecteerd/gekopieerd.');
+      }
+    }
+
+    function downloadJson() {
+      generateJson();
+      const blob = new Blob([jsonOutput.value], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'level.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    // ----- Level laden via query parameter -----
+    async function loadLevelFromUrl() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const levelFile = urlParams.get('level');
+      if (!levelFile) {
+        console.log('Geen level parameter, gebruik standaard level');
+        level = JSON.parse(JSON.stringify(DEFAULT_LEVEL));
+        return;
+      }
+
+      try {
+        const response = await fetch(levelFile);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const jsonData = await response.json();
+        // Vul ontbrekende velden aan met defaults
+        level = {
+          ...DEFAULT_LEVEL,
+          ...jsonData,
+          nodes: { ...DEFAULT_LEVEL.nodes, ...(jsonData.nodes || {}) },
+          routes: jsonData.routes || DEFAULT_LEVEL.routes
+        };
+        console.log(`Level geladen uit ${levelFile}`);
+      } catch (err) {
+        console.error(`Fout bij laden van ${levelFile}:`, err);
+        alert(`Kon level niet laden: ${levelFile}\nVal terug naar standaard level.`);
+        level = JSON.parse(JSON.stringify(DEFAULT_LEVEL));
+      }
+    }
+
+    // ----- Initialisatie -----
+    async function init() {
+      await loadLevelFromUrl();
+      // Bepaal nodeCounter op basis van bestaande nodes
+      const maxNum = Math.max(0, ...Object.keys(level.nodes).map(id => {
+        const match = id.match(/^node(\d+)$/);
+        return match ? parseInt(match[1], 10) : 0;
+      }));
+      nodeCounter = maxNum + 1;
+
+      draw();
+      if (level.startNode) selectNode(level.startNode);
+      generateJson();
+    }
+
+    // Event listeners
+    document.getElementById('modeSelect').addEventListener('click', () => setMode('select'));
+    document.getElementById('modeAdd').addEventListener('click', () => setMode('add'));
+    document.getElementById('saveNode').addEventListener('click', saveNode);
+    document.getElementById('deleteNode').addEventListener('click', deleteNode);
+    document.getElementById('addRoute').addEventListener('click', addRoute);
+    document.getElementById('deleteRoute').addEventListener('click', deleteRoute);
+    document.getElementById('autoRoute').addEventListener('click', autoRoute);
+    document.getElementById('generateJson').addEventListener('click', generateJson);
+    document.getElementById('copyJson').addEventListener('click', copyJson);
+    document.getElementById('downloadJson').addEventListener('click', downloadJson);
+
+    stage.addEventListener('click', event => {
+      if (mode !== 'add') return;
+      const p = getStagePoint(event);
+      addNodeAt(p.x, p.y);
+    });
+
+    document.getElementById('bgUpload').addEventListener('change', event => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      stage.style.setProperty('--builder-bg', `url("${url}")`);
+      stage.classList.add('has-bg');
+    });
+
+    nodeTypeInput.addEventListener('change', () => {
+      nodeHrefInput.disabled = nodeTypeInput.value !== 'page';
+    });
+
+    init();
+  </script>
+</body>
+</html>

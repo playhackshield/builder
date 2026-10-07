@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Holocraft Node Level</title>
+  <style>
+    :root {
+      --page-bg: #ffffff;
+      --path: #8feaff;
+      --path-dark: #145a8d;
+      --node: #f2c94c;
+      --stage-width: 1024px;
+      --stage-height: 640px;
+      --background-image: url('level-background.png');
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: var(--page-bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .game-shell { width: var(--stage-width); max-width: 100%; }
+
+    .stage-scale {
+      width: 100%;
+      aspect-ratio: 1024 / 640;
+      position: relative;
+      background: #ffffff;
+    }
+
+    .game-stage {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: var(--stage-width);
+      height: var(--stage-height);
+      transform-origin: top left;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    .level-background {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      background-image: var(--background-image);
+      background-size: 100% 100%;
+      background-position: center;
+      background-repeat: no-repeat;
+      pointer-events: none;
+    }
+
+    #mapSvg {
+      position: absolute;
+      inset: 0;
+      width: var(--stage-width);
+      height: var(--stage-height);
+      z-index: 10;
+      overflow: visible;
+      background: transparent;
+    }
+
+    .path-glow {
+      stroke: rgba(0, 229, 255, 0.25);
+      stroke-width: 12;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      filter: blur(3px);
+      pointer-events: none;
+    }
+
+    .path-base {
+      stroke: rgba(0, 0, 0, 0.35);
+      stroke-width: 10;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      pointer-events: none;
+    }
+
+    .path-line {
+      stroke: var(--path-dark);
+      stroke-width: 8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      pointer-events: none;
+    }
+
+    .path-center {
+      stroke: var(--path);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 5 6;
+      fill: none;
+      opacity: 0.9;
+      animation: dashMove 1.1s linear infinite;
+      pointer-events: none;
+    }
+
+    @keyframes dashMove { to { stroke-dashoffset: -11; } }
+
+    .node-glow {
+      fill: rgba(0, 229, 255, 0.18);
+      filter: blur(2px);
+      pointer-events: none;
+    }
+
+    .node {
+      fill: rgba(255, 255, 255, 0.85);
+      stroke: rgba(242, 201, 76, 0.82);
+      stroke-width: 1.5;
+      pointer-events: none;
+    }
+
+    .destination-hit {
+      fill: rgba(242, 201, 76, 0.01);
+      stroke: rgba(242, 201, 76, 0.85);
+      stroke-width: 1.2;
+      cursor: pointer;
+      transition: filter 0.16s ease, stroke-width 0.16s ease, fill 0.16s ease;
+    }
+
+    .destination-hit:hover {
+      stroke-width: 2;
+      fill: rgba(242, 201, 76, 0.1);
+      filter: drop-shadow(0 0 8px rgba(242, 201, 76, 0.85));
+    }
+
+    .destination-hit.inactive { display: none; }
+
+    .ship-wrap {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 51px;
+      height: 31px;
+      transform: translate(-50%, -50%) rotate(0deg);
+      transform-origin: 50% 50%;
+      transition: left 0.9s linear, top 0.9s linear, transform 0.2s ease;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    .ship-hover {
+      position: absolute;
+      inset: 0;
+      transform: translate(var(--ship-anchor-x, 0px), var(--ship-anchor-y, 0px));
+      animation: hoverFloat 1.5s ease-in-out infinite;
+      filter: drop-shadow(0 5px 4px rgba(0, 0, 0, 0.45));
+    }
+
+    .ship-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      position: relative;
+      z-index: 3;
+    }
+
+    .ship-shadow {
+      position: absolute;
+      left: 20%;
+      right: 20%;
+      bottom: 0;
+      height: 7px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.28);
+      filter: blur(3px);
+      transform: translateY(5px);
+      z-index: 1;
+    }
+
+    .booster-pulse {
+      position: absolute;
+      right: -8px;
+      top: 50%;
+      width: 24px;
+      height: 11px;
+      transform: translateY(-50%);
+      background: radial-gradient(circle at left, rgba(255,255,255,0.95), rgba(0,245,255,0.82) 24%, rgba(0,166,255,0.45) 55%, rgba(0,166,255,0) 72%);
+      clip-path: polygon(0 24%, 100% 50%, 0 76%);
+      opacity: 0.3;
+      filter: blur(1px);
+      z-index: 2;
+      animation: boosterIdle 0.7s ease-in-out infinite alternate;
+    }
+
+    .ship-wrap.moving .booster-pulse {
+      opacity: 0.95;
+      width: 36px;
+      right: -23px;
+      animation: boosterMoving 0.18s ease-in-out infinite alternate;
+    }
+
+    .ship-wrap.moving .ship-hover { animation: hoverFloatFast 0.55s ease-in-out infinite; }
+
+    @keyframes hoverFloat {
+      0%, 100% { transform: translate(var(--ship-anchor-x, 0px), var(--ship-anchor-y, 0px)) translateY(0); }
+      50% { transform: translate(var(--ship-anchor-x, 0px), var(--ship-anchor-y, 0px)) translateY(-2.5px); }
+    }
+
+    @keyframes hoverFloatFast {
+      0%, 100% { transform: translate(var(--ship-anchor-x, 0px), var(--ship-anchor-y, 0px)) translateY(-1px); }
+      50% { transform: translate(var(--ship-anchor-x, 0px), var(--ship-anchor-y, 0px)) translateY(-3px); }
+    }
+
+    @keyframes boosterIdle {
+      from { transform: translateY(-50%) scaleX(0.72); opacity: 0.18; }
+      to { transform: translateY(-50%) scaleX(1); opacity: 0.38; }
+    }
+
+    @keyframes boosterMoving {
+      from { transform: translateY(-50%) scaleX(0.86); opacity: 0.65; }
+      to { transform: translateY(-50%) scaleX(1.12); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <main class="game-shell">
+    <section class="stage-scale" id="stageScale">
+      <div class="game-stage" id="gameStage">
+        <div class="level-background"></div>
+        <svg id="mapSvg" viewBox="0 0 1024 640" preserveAspectRatio="none" aria-label="Route overlay"></svg>
+
+        <div class="ship-wrap" id="ship" aria-hidden="true">
+          <div class="ship-hover">
+            <div class="ship-shadow"></div>
+            <div class="booster-pulse"></div>
+            <img class="ship-img" src="holocraft_transparent_game.png" alt="" />
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ----- DEFAULT LEVEL DATA (volledige structuur) -----
+    const DEFAULT_LEVEL = {
+      assetFrontOffset: 180,
+      shipAnchorOffset: { x: 0, y: 0 },
+      width: 1024,
+      height: 640,
+      speedPxPerSecond: 260,
+      startNode: 'start',
+      startRotation: -90,
+      nodes: {
+        start: { x: 512, y: 555, type: 'start', visible: true },
+        pageA: { x: 240, y: 160, type: 'page', href: 'level-a.html', visible: true },
+        pageB: { x: 512, y: 115, type: 'page', href: 'level-b.html', visible: true },
+        junction1: { x: 760, y: 250, type: 'junction', visible: true },
+        pageC: { x: 650, y: 90, type: 'page', href: 'level-c.html', visible: true },
+        pageD: { x: 895, y: 125, type: 'page', href: 'level-d.html', visible: true },
+        midLeft: { x: 350, y: 345, type: 'hidden' },
+        midTop: { x: 512, y: 310, type: 'hidden' },
+        midJunction: { x: 650, y: 370, type: 'hidden' }
+      },
+      routes: [
+        { from: 'start', to: 'pageA', nodes: ['start', 'midLeft', 'pageA'] },
+        { from: 'start', to: 'pageB', nodes: ['start', 'midTop', 'pageB'] },
+        { from: 'start', to: 'junction1', nodes: ['start', 'midJunction', 'junction1'] },
+        { from: 'junction1', to: 'pageC', nodes: ['junction1', 'pageC'] },
+        { from: 'junction1', to: 'pageD', nodes: ['junction1', 'pageD'] }
+      ]
+    };
+
+    let LEVEL = { ...DEFAULT_LEVEL }; // wordt overschreven als er een level wordt geladen
+
+    // ----- Helper om ontbrekende velden aan te vullen -----
+    function mergeWithDefaults(loadedLevel) {
+      return {
+        ...DEFAULT_LEVEL,
+        ...loadedLevel,
+        nodes: { ...DEFAULT_LEVEL.nodes, ...(loadedLevel.nodes || {}) },
+        routes: loadedLevel.routes || DEFAULT_LEVEL.routes
+      };
+    }
+
+    // ----- Level laden via query parameter -----
+    async function loadLevelFromUrl() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const levelFile = urlParams.get('level');
+      if (!levelFile) {
+        console.log('Geen level parameter, gebruik standaard level');
+        LEVEL = { ...DEFAULT_LEVEL };
+        return;
+      }
+
+      try {
+        const response = await fetch(levelFile);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const jsonData = await response.json();
+        LEVEL = mergeWithDefaults(jsonData);
+        console.log(`Level geladen uit ${levelFile}`);
+      } catch (err) {
+        console.error(`Fout bij laden van ${levelFile}:`, err);
+        alert(`Kon level niet laden: ${levelFile}\nVal terug naar standaard level.`);
+        LEVEL = { ...DEFAULT_LEVEL };
+      }
+    }
+
+    // ----- De rest van de originele spelcode (onaangepast, werkt met LEVEL) -----
+    const svg = document.getElementById('mapSvg');
+    const ship = document.getElementById('ship');
+    const gameStage = document.getElementById('gameStage');
+    const stageScale = document.getElementById('stageScale');
+
+    let currentNodeId = null;
+    let currentRotation = null;
+    let isMoving = false;
+    const hitElements = new Map();
+
+    function applyStageScale() {
+      const availableWidth = stageScale.clientWidth;
+      const scale = availableWidth / LEVEL.width;
+      gameStage.style.transform = `scale(${scale})`;
+      stageScale.style.height = `${LEVEL.height * scale}px`;
+    }
+
+    function createSvgElement(tag, attributes = {}) {
+      const element = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value));
+      return element;
+    }
+
+    function getNode(id) { return LEVEL.nodes[id]; }
+
+    function routeToPathData(nodeIds) {
+      return nodeIds.map((nodeId, index) => {
+        const point = getNode(nodeId);
+        return `${index === 0 ? 'M' : 'L'}${point.x} ${point.y}`;
+      }).join(' ');
+    }
+
+    function drawPath(route, className) {
+      svg.appendChild(createSvgElement('path', { class: className, d: routeToPathData(route.nodes) }));
+    }
+
+    function isVisibleNode(node) {
+      return node.visible === true && node.type !== 'hidden';
+    }
+
+    function drawLevel() {
+      svg.innerHTML = '';
+      hitElements.clear();
+
+      ['path-glow', 'path-base', 'path-line', 'path-center'].forEach(className => {
+        LEVEL.routes.forEach(route => drawPath(route, className));
+      });
+
+      Object.entries(LEVEL.nodes).forEach(([id, node]) => {
+        if (!isVisibleNode(node)) return;
+
+        svg.appendChild(createSvgElement('circle', { class: 'node-glow', cx: node.x, cy: node.y, r: 13 }));
+        svg.appendChild(createSvgElement('circle', { class: 'node', cx: node.x, cy: node.y, r: 8 }));
+
+        const hit = createSvgElement('circle', {
+          class: 'destination-hit inactive',
+          cx: node.x,
+          cy: node.y,
+          r: 14,
+          tabindex: -1,
+          role: 'button',
+          'aria-hidden': 'true',
+          'data-node-id': id
+        });
+        hit.addEventListener('click', () => handleDestinationClick(id));
+        hit.addEventListener('keydown', event => {
+          if (event.key === 'Enter' || event.key === ' ') handleDestinationClick(id);
+        });
+        hitElements.set(id, hit);
+        svg.appendChild(hit);
+      });
+
+      updateAvailableDestinations();
+    }
+
+    function getAvailableRoutesFrom(nodeId) {
+      return LEVEL.routes.flatMap(route => {
+        const forward = route.from === nodeId ? [{ route, direction: 'forward' }] : [];
+        const backward = !route.oneWay && route.to === nodeId ? [{ route, direction: 'backward' }] : [];
+        return [...forward, ...backward];
+      });
+    }
+
+    function getRouteDestination(routeInfo) {
+      return routeInfo.direction === 'forward' ? routeInfo.route.to : routeInfo.route.from;
+    }
+
+    function updateAvailableDestinations() {
+      hitElements.forEach((hit) => {
+        hit.classList.add('inactive');
+        hit.setAttribute('aria-hidden', 'true');
+        hit.setAttribute('tabindex', '-1');
+      });
+
+      getAvailableRoutesFrom(currentNodeId).forEach(routeInfo => {
+        const destinationId = getRouteDestination(routeInfo);
+        const hit = hitElements.get(destinationId);
+        if (hit) {
+          hit.classList.remove('inactive');
+          hit.setAttribute('aria-hidden', 'false');
+          hit.setAttribute('tabindex', '0');
+        }
+      });
+    }
+
+    function findRouteTo(destinationId) {
+      return getAvailableRoutesFrom(currentNodeId).find(routeInfo => getRouteDestination(routeInfo) === destinationId);
+    }
+
+    function getTravelNodeIds(routeInfo) {
+      return routeInfo.direction === 'forward'
+        ? routeInfo.route.nodes
+        : [...routeInfo.route.nodes].reverse();
+    }
+
+    function angleBetween(from, to) {
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      return Math.atan2(dy, dx) * 180 / Math.PI;
+    }
+
+    function distanceBetween(from, to) {
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function placeShipAtNode(nodeId, animate = false, rotation = currentRotation, duration = 0.9) {
+      const point = getNode(nodeId);
+      currentNodeId = nodeId;
+      currentRotation = rotation;
+
+      ship.style.transition = animate
+        ? `left ${duration}s linear, top ${duration}s linear, transform 0.2s ease`
+        : 'none';
+
+      ship.style.left = `${point.x}px`;
+      ship.style.top = `${point.y}px`;
+      ship.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
+
+      if (!animate) {
+        requestAnimationFrame(() => {
+          ship.style.transition = 'left 0.9s linear, top 0.9s linear, transform 0.2s ease';
+        });
+      }
+    }
+
+    function wait(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+    async function travel(routeInfo) {
+      isMoving = true;
+      ship.classList.add('moving');
+      hitElements.forEach(hit => hit.classList.add('inactive'));
+
+      const nodeIds = getTravelNodeIds(routeInfo);
+
+      for (let i = 1; i < nodeIds.length; i++) {
+        const fromId = nodeIds[i - 1];
+        const toId = nodeIds[i];
+        const from = getNode(fromId);
+        const to = getNode(toId);
+        const correctedRotation = angleBetween(from, to) + LEVEL.assetFrontOffset;
+        const duration = Math.max(0.25, distanceBetween(from, to) / LEVEL.speedPxPerSecond);
+
+        placeShipAtNode(toId, true, correctedRotation, duration);
+        await wait(duration * 1000 + 60);
+      }
+
+      ship.classList.remove('moving');
+      isMoving = false;
+
+      const arrivedNode = getNode(currentNodeId);
+      if (arrivedNode.type === 'page' && arrivedNode.href) {
+        await wait(300);
+        window.location.href = arrivedNode.href;
+        return;
+      }
+
+      updateAvailableDestinations();
+    }
+
+    function handleDestinationClick(destinationId) {
+      if (isMoving) return;
+      const routeInfo = findRouteTo(destinationId);
+      if (!routeInfo) return;
+      travel(routeInfo);
+    }
+
+    // ----- Initialisatie: laad level en start -----
+    async function init() {
+      await loadLevelFromUrl();
+      ship.style.setProperty('--ship-anchor-x', `${LEVEL.shipAnchorOffset.x}px`);
+      ship.style.setProperty('--ship-anchor-y', `${LEVEL.shipAnchorOffset.y}px`);
+      drawLevel();
+      applyStageScale();
+      currentNodeId = LEVEL.startNode;
+      currentRotation = LEVEL.startRotation + LEVEL.assetFrontOffset;
+      placeShipAtNode(LEVEL.startNode, false, currentRotation);
+      updateAvailableDestinations();
+      window.addEventListener('resize', applyStageScale);
+    }
+
+    init();
+  </script>
+</body>
+</html>
